@@ -1,0 +1,34 @@
+name: Publish on Release
+
+# A GitHub release (tag v0.1.1, ...) publishes that version to npm with OIDC trusted publishing
+# (no token; set up once on npmjs.com → @perxel/social-kit → Settings → Trusted publishing:
+# perxel/perxel-social-kit, workflow publish.yml). The action sets package.json's version from the
+# tag, builds and commits package.json back to main.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - uses: phucbm/publish-npm-action@v1
+        with:
+          node-version: '22'
+          pnpm-version: '10.22.0'
+          install-command: 'pnpm install --frozen-lockfile'
+          build-command: 'pnpm build'
+          # dist/ is built for the package, not kept in git: only package.json is committed back.
+          output-dir: 'package.json'
