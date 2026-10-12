@@ -39,6 +39,8 @@ examples/social/      sample project folder
 3. **Bundled still** (`meta.bundle: true`): one-frame Remotion still, for client templates (effects, canvas, Lottie players, Tailwind, path aliases). Config `bundle`: `css` (imported into the entry), `tailwind` (`@remotion/tailwind-v4`), `alias` (relative to `social/`; also applied to jiti so Node can read the template's meta), `root` (the web root linked into the bundle so `/logo.svg` works). The wrapper waits on `data-pending` and fails on `data-error`, like path 1.
 4. **Reel** (`meta.kind: "reel"`, `fps`, `duration`): Remotion composition per format, bundled once, `renderMedia` to H.264 (crf 18), plus a 12-frame strip per format for the sheet. Templates get `frame`, `fps`, `voice`, and may import Remotion directly.
 
+Every template gets `mode: "still" | "reel"`. A `kind: "both"` template switches on it; a post with `reel: {formats}` renders its stills (path 1 or 3) and then its reel (path 4) in one `render` (`postPlan` in `project.ts`). Files in `out/` are `<name>-<format>.<ext>` (`postName`: `post.name`, else the folder name without its date); posts held in memory (visual composes) get no prefix.
+
 Paths 3 and 4 share `prepareReel` in `render/reel.ts`: it writes `social/.kit/reel-<ref>.tsx` (self-gitignored) into the project so `remotion` and React resolve to the project's copies, bundles with the project root as Remotion's public dir (`symlinkPublicDir`), and overrides webpack (aliases, Tailwind, loader fixes below).
 
 ### Visuals runner
@@ -46,6 +48,7 @@ Paths 3 and 4 share `prepareReel` in `render/reel.ts`: it writes `social/.kit/re
 
 ## Decisions (owner, 2026-10-12) and why
 
+- **One folder per campaign, files named after it** (0.2.0): the owner wants one post to hold a launch's images and reel, and files that say what they are once downloaded (`launch-square.mp4`, not `square.mp4`). Rejected: a `pieces` map of several templates per post (more config than a `both` template with a `mode`).
 - **Every post renders every size** (images 1:1 + 16:9, reels also 9:16). The cost is layout, not rendering; review is one contact sheet.
 - **An npm package, not a repo to clone**; the skill installs through `npx skills` (vercel-labs/skills). No postinstall (pnpm 10 blocks it; writing into `.claude/` unasked is rude).
 - **Users own their templates**; the kit ships the engine and a starter or two. A project template named like a starter replaces it; `eject` copies one.
@@ -77,7 +80,7 @@ Paths 3 and 4 share `prepareReel` in `render/reel.ts`: it writes `social/.kit/re
 ## Checking a change
 
 There are no tests, so run it:
-- **Images:** `pnpm example render 2026-01-01-hello` and read `examples/social/posts/*/out/sheet.png`.
+- **Images:** `pnpm example render 2026-01-01-hello` and read `examples/social/posts/*/out/*-sheet.png`.
 - **Reels:** `pnpm example render 2026-01-02-hello-reel` (kit devDependencies include Remotion).
 - **On a real project:** perxel-web-2026 (`../perxel-web-2026`, `pnpm social …`, `pnpm visuals …`). Its `social/templates/` has bundled templates (devices, pairing with a Lottie still, whale, bars, flow, code, gallery) and a Remotion reel (`lottie-reel`, footage in `social/assets/footage/lottie/`; media under its `social/` is in Git LFS). To test an unreleased build there, point its script at this checkout temporarily (`node ../perxel-social-kit/dist/cli/index.js`), never commit that.
 - **A fresh install:** `pnpm pack`, then in an empty folder with a `package.json`: `SOCIAL_KIT_INSTALL=<tgz> SOCIAL_KIT_SKILL_SOURCE=<this checkout> npx --package=<tgz> social-kit init --agent claude-code`.

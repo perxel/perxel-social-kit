@@ -3,7 +3,7 @@
 import {mkdirSync} from "node:fs"
 import {join, relative} from "node:path"
 import type {Browser} from "puppeteer-core"
-import {loadPost, loadTemplate, postFormats, sizeOf, type Project} from "../project.js"
+import {loadPost, loadTemplate, outFile, postName, postPlan, sizeOf, type Project} from "../project.js"
 import type {Format, Post} from "../types.js"
 import {launch, waitReady} from "./chrome.js"
 import {previewReel, renderBundledStill, renderReel} from "./reel.js"
@@ -14,13 +14,19 @@ export interface RenderOptions {
     log?: (line: string) => void
 }
 
+/** Renders a post from disk into its `out/`: its stills, then its reel (a `both` template can have both). */
 export async function renderPost(project: Project, dir: string, {only, log = console.log}: RenderOptions = {}) {
     const post = await loadPost(project, dir)
-    let formats = await postFormats(project, post)
-    if (only?.length) formats = formats.filter((f) => only.includes(f))
-    if (!formats.length) throw new Error(`Nothing to render: the post's formats don't include ${only?.join(", ")}`)
+    const plan = await postPlan(project, post)
+    const pick = (formats: Format[]) => only?.length ? formats.filter((f) => only.includes(f)) : formats
+    const stills = pick(plan.stills), reel = pick(plan.reel)
+    if (!stills.length && !reel.length) throw new Error(`Nothing to render: the post's formats don't include ${only?.join(", ")}`)
     const ref = relative(join(project.social, "posts"), dir)
-    return renderPostTo(project, post, {dir, ref, formats, outDir: join(dir, "out"), log})
+    const target = {dir, ref, outDir: join(dir, "out"), name: postName(dir, post), log}
+    const written: string[] = []
+    if (stills.length) written.push(...await renderPostTo(project, post, {...target, formats: stills, mode: "still"}))
+    if (reel.length) written.push(...await renderPostTo(project, post, {...target, formats: reel, mode: "reel"}))
+    return written
 }
 
 export interface RenderTarget {
@@ -29,20 +35,24 @@ export interface RenderTarget {
     /** Names the post in logs and on the kit's server. */
     ref: string
     formats: Format[]
-    /** Files are written here as `<format>.png` / `.mp4`. */
+    /** Files are written here as `<name>-<format>.png` / `.mp4` (`<format>.png` without a name). */
     outDir: string
+    name?: string
+    /** Still or reel; worked out from the template and the post when left out. */
+    mode?: "still" | "reel"
     log?: (line: string) => void
     /** The post is not on disk: serve it from memory. */
     inMemory?: boolean
 }
 
 /** Renders a post object (from disk or built in memory) into `outDir`. */
-export async function renderPostTo(project: Project, post: Post, {dir, ref, formats, outDir, log = console.log, inMemory}: RenderTarget) {
+export async function renderPostTo(project: Project, post: Post, {dir, ref, formats, outDir, name, mode, log = console.log, inMemory}: RenderTarget) {
     mkdirSync(outDir, {recursive: true})
     if (post.template && !post.url) {
         const {meta} = await loadTemplate(project, post.template)
-        if (meta.kind === "reel" || (meta.kind === "both" && post.reel)) return renderReel(project, dir, post, {formats, ref, log, outDir})
-        if (meta.bundle) return renderBundledStill(project, dir, post, {formats, ref, log, outDir})
+        const reel = mode ? mode === "reel" : meta.kind === "reel" || (meta.kind === "both" && post.reel === true)
+        if (reel) return renderReel(project, dir, post, {formats, ref, log, outDir, name})
+        if (meta.bundle) return renderBundledStill(project, dir, post, {formats, ref, log, outDir, name})
     }
     let server: KitServer | undefined
     let browser: Browser | undefined
@@ -63,7 +73,7 @@ export async function renderPostTo(project: Project, post: Post, {dir, ref, form
             } catch (error) {
                 throw new Error(`${ref} ${format}: ${error instanceof Error ? error.message : error}`)
             }
-            const file = join(outDir, `${format}.png`)
+            const file = join(outDir, outFile(name, format, "png"))
             await page.screenshot({path: file as `${string}.png`, clip: {x: 0, y: 0, width, height}})
             await page.close()
             written.push(file)
@@ -79,17 +89,17 @@ export async function renderPostTo(project: Project, post: Post, {dir, ref, form
 /** Reels only: stills at chosen seconds, tiled per format (see `previewReel`). */
 export async function previewPost(project: Project, dir: string, {only, at, log = console.log}: RenderOptions & {at?: number[]} = {}) {
     const post = await loadPost(project, dir)
-    let formats = await postFormats(project, post)
-    if (only?.length) formats = formats.filter((f) => only.includes(f))
+    let formats = (await postPlan(project, post)).reel
     const ref = relative(join(project.social, "posts"), dir)
-    const meta = post.template && !post.url ? (await loadTemplate(project, post.template)).meta : undefined
-    if (!(meta?.kind === "reel" || (meta?.kind === "both" && post.reel))) throw new Error(`${ref} is not a reel: \`social-kit render\` it instead`)
-    return previewReel(project, dir, post, {formats, ref, log, at})
+    if (!formats.length) throw new Error(`${ref} has no reel: \`social-kit render\` it instead`)
+    if (only?.length) formats = formats.filter((f) => only.includes(f))
+    return previewReel(project, dir, post, {formats, ref, log, at, name: postName(dir, post)})
 }
 
-/** A contact sheet of everything in the post's `out/`, at `out/sheet.png`. */
+/** A contact sheet of everything in the post's `out/`, at `out/<name>-sheet.png`. */
 export async function renderSheet(project: Project, dir: string, {log = console.log}: RenderOptions = {}) {
     const ref = relative(join(project.social, "posts"), dir)
+    const name = postName(dir, await loadPost(project, dir))
     const server = await startServer(project)
     const browser = await launch()
     try {
@@ -97,7 +107,7 @@ export async function renderSheet(project: Project, dir: string, {log = console.
         await page.setViewport({width: 1600, height: 900, deviceScaleFactor: 1})
         await page.goto(`${server.url}/__kit/sheet?post=${encodeURIComponent(ref)}`, {waitUntil: "load"})
         await waitReady(page)
-        const file = join(dir, "out", "sheet.png")
+        const file = join(dir, "out", outFile(name, "sheet", "png"))
         mkdirSync(join(dir, "out"), {recursive: true})
         await page.screenshot({path: file as `${string}.png`, fullPage: true})
         log(relative(process.cwd(), file))

@@ -7,7 +7,7 @@ import {execFileSync} from "node:child_process"
 import {copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync} from "node:fs"
 import {dirname, join, relative, resolve} from "node:path"
 import {pathToFileURL} from "node:url"
-import {KIT_ROOT, loadTemplate, sizeOf, urlFor, type Project} from "../project.js"
+import {KIT_ROOT, loadTemplate, outFile, sizeOf, urlFor, type Project} from "../project.js"
 import type {Format, Post} from "../types.js"
 import {voiceFor} from "../audio/voice.js"
 
@@ -37,6 +37,8 @@ export interface ReelOptions {
     still?: boolean
     /** Where files go; the post's `out/` by default. */
     outDir?: string
+    /** Prefix of the file names (`<name>-<format>.mp4`); none for posts held in memory. */
+    name?: string
 }
 
 /** Bundles the post once: one composition per format. */
@@ -145,7 +147,7 @@ export async function renderReel(project: Project, dir: string, post: Post, opti
     const written: string[] = []
     for (const {id, format, width, height} of spec.formats) {
         const composition = await selectComposition({serveUrl, id})
-        const file = join(out, `${format}.mp4`)
+        const file = join(out, outFile(options.name, format, "mp4"))
         let shown = -1
         await renderMedia({
             composition, serveUrl, codec: "h264", crf: post.crf ?? 18,
@@ -158,7 +160,7 @@ export async function renderReel(project: Project, dir: string, post: Post, opti
         process.stdout.write("\n")
         written.push(file)
         log(`${relative(process.cwd(), file)}  ${width}×${height}  ${seconds.toFixed(1)} s`)
-        const frames = framesStrip(file, join(out, `${format}.frames.jpg`), seconds, width >= height)
+        const frames = framesStrip(file, join(out, outFile(options.name, format, "frames.jpg")), seconds, width >= height)
         if (frames) written.push(frames)
     }
     return written
@@ -172,7 +174,7 @@ export async function renderBundledStill(project: Project, dir: string, post: Po
     const written: string[] = []
     for (const {id, format, width, height} of spec.formats) {
         const composition = await selectComposition({serveUrl, id})
-        const file = join(out, `${format}.png`)
+        const file = join(out, outFile(options.name, format, "png"))
         await renderStill({composition, serveUrl, frame: 0, output: file, imageFormat: "png", scale: post.scale ?? 1, overwrite: true})
         written.push(file)
         options.log(`${relative(process.cwd(), file)}  ${width}×${height}`)
@@ -202,7 +204,7 @@ export async function previewReel(project: Project, dir: string, post: Post, opt
         }
         const cols = Math.min(at.length, width >= height ? 4 : 6)
         const rows = Math.ceil(at.length / cols)
-        const file = join(out, `${format}.preview.jpg`)
+        const file = join(out, outFile(options.name, format, "preview.jpg"))
         execFileSync("ffmpeg", ["-y", "-v", "error", "-i", join(tmp, `${format}-%03d.jpg`), "-vf",
             `tile=${cols}x${rows}:padding=8:color=white`, "-frames:v", "1", "-q:v", "3", file])
         written.push(file)
@@ -290,7 +292,7 @@ function Reel({format}: {format: string}) {
     useReady()
     const frame = useCurrentFrame()
     const {width, height, fps} = useVideoConfig()
-    return createElement((template as any).default, {width, height, format, frame, fps, props: SPEC.props, voice: SPEC.voice, brand: brand(), asset})
+    return createElement((template as any).default, {width, height, format, mode: SPEC.still ? "still" : "reel", frame, fps, props: SPEC.props, voice: SPEC.voice, brand: brand(), asset})
 }
 
 registerRoot(() => createElement(Fragment, null, SPEC.formats.map((f: any) => createElement(Composition, {

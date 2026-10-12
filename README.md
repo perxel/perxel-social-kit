@@ -30,7 +30,7 @@ Update both with `pnpm update @perxel/social-kit && npx skills update`.
 
 ```sh
 social-kit new launch-day --template announcement   # social/posts/<date>-launch-day/post.ts
-social-kit render launch-day                        # out/square.png, landscape.png, portrait.png + out/sheet.png
+social-kit render launch-day                        # out/launch-day-square.png, -landscape.png, -portrait.png + launch-day-sheet.png
 social-kit render launch-day --only portrait
 social-kit templates | eject <name> | sheet <post> | doctor
 ```
@@ -54,7 +54,7 @@ social/
   assets/                 logos, music, footage
   posts/<date>-<topic>/
     post.ts
-    out/                  the rendered files
+    out/                  the rendered files, named after the post: <topic>-<format>.png|mp4
 ```
 
 ## Templates
@@ -78,7 +78,26 @@ export default function Quote({width, height, format, props, brand, asset}: Temp
 
 ## Reels
 
-A template with `kind: "reel"`, `fps` and `duration` renders to `out/<format>.mp4` through [Remotion](https://www.remotion.dev). Reel templates get `frame` and `fps` and may use Remotion's own components (video, audio, sequences, Lottie).
+A template with `kind: "reel"`, `fps` and `duration` renders to `out/<topic>-<format>.mp4` through [Remotion](https://www.remotion.dev). Reel templates get `frame` and `fps` and may use Remotion's own components (video, audio, sequences, Lottie).
+
+One post can hold a whole campaign: a template with `kind: "both"` draws a still or a reel depending on `mode`, and a post that sets `reel: {formats}` gets both from one `render`:
+
+```ts
+export default definePost({
+    template: "launch",                                   // kind: "both"
+    formats: ["landscape", "square"],                     // the stills
+    reel: {formats: ["square", "landscape", "portrait"]}, // and the reel
+    props: {headline: "Something new is **here**."},
+})
+```
+
+```tsx
+export default function Launch(p: TemplateProps<Props>) {
+    return p.mode === "reel" ? <LaunchReel {...p}/> : <LaunchStill {...p}/>
+}
+```
+
+Stills render without Remotion, so keep Remotion hooks and components inside the reel branch. Files are named after the post folder without its date (`2026-10-12-launch` → `launch-square.png`, `launch-square.mp4`); set `name` on the post to change it.
 
 ```sh
 social-kit preview <post> --at 1.5,4,9     # stills at those seconds for every format, without a full render

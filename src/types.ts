@@ -67,6 +67,11 @@ export interface TemplateProps<P = Record<string, unknown>> {
     width: number
     height: number
     format: Format
+    /**
+     * What is being rendered: a still image or a reel. A template of kind `both` draws a different
+     * picture for each (and only touches Remotion in a reel: stills render without it).
+     */
+    mode: "still" | "reel"
     /** 0 for a still. */
     frame: number
     fps: number
@@ -108,8 +113,16 @@ export interface Post<P = Record<string, unknown>> {
     /** A template in `social/templates/` or a kit starter. Ignored when `url` is set. */
     template?: string
     props?: P
-    /** Formats to render; the config's `defaults.still` when left out. */
+    /**
+     * Formats to render; the config's `defaults.still` when left out (`defaults.reel` for a reel
+     * template, or a `both` template with `reel: true`).
+     */
     formats?: Format[]
+    /**
+     * Names the files in `out/`: `<name>-<format>.png`, `<name>-<format>.mp4`, `<name>-sheet.png`.
+     * The folder name without its date when left out (`2026-10-12-launch` → `launch`).
+     */
+    name?: string
     /**
      * URL mode: screenshot a page the project serves itself. `{format}`, `{width}` and `{height}`
      * are filled in per format.
@@ -117,8 +130,12 @@ export interface Post<P = Record<string, unknown>> {
     url?: string
     /** Device pixel ratio, 1 by default. */
     scale?: number
-    /** For a template of kind `both`: render it as a reel instead of stills. */
-    reel?: boolean
+    /**
+     * For a template of kind `both`. `true`: render it as a reel instead of stills (in `formats`).
+     * An object: render the stills (in `formats`) and the reel too, in its own formats
+     * (`defaults.reel` when left out).
+     */
+    reel?: boolean | {formats?: Format[]}
     /** Reels: length in seconds, overriding the template's. */
     duration?: number
     /** Reels: H.264 quality, lower is better (18 by default). */

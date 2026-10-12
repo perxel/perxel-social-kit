@@ -142,14 +142,25 @@ export function listPosts(project: Project): string[] {
     return readdirSync(dir).filter((d) => postFile(join(dir, d))).sort()
 }
 
-export async function postFormats(project: Project, post: Post): Promise<Format[]> {
-    if (post.formats?.length) return post.formats
+/** What a post renders: its still formats and its reel formats (either may be empty). */
+export async function postPlan(project: Project, post: Post): Promise<{stills: Format[]; reel: Format[]}> {
+    const stills = () => post.formats?.length ? post.formats : project.config.defaults?.still ?? ["square", "landscape"]
+    const reels = (own?: Format[]) => own?.length ? own : project.config.defaults?.reel ?? ["square", "landscape", "portrait"]
     if (post.template && !post.url) {
         const {meta} = await loadTemplate(project, post.template)
-        if (meta.kind === "reel" || (meta.kind === "both" && post.reel)) return project.config.defaults?.reel ?? ["square", "landscape", "portrait"]
+        if (meta.kind === "reel" || (meta.kind === "both" && post.reel === true)) return {stills: [], reel: reels(post.formats)}
+        if (meta.kind === "both" && typeof post.reel === "object") return {stills: stills(), reel: reels(post.reel.formats)}
     }
-    return project.config.defaults?.still ?? ["square", "landscape"]
+    return {stills: stills(), reel: []}
 }
+
+/** The name in a post's output files: `post.name`, else its folder name without the date. */
+export function postName(dir: string, post: Post) {
+    return post.name ?? basename(dir).replace(/^\d{4}-\d{2}-\d{2}-/, "")
+}
+
+/** `<name>-<format>.<ext>`, or `<format>.<ext>` with no name (posts held in memory). */
+export const outFile = (name: string | undefined, format: string, ext: string) => `${name ? `${name}-` : ""}${format}.${ext}`
 
 export function sizeOf(project: Project, format: Format): Size {
     const size = project.formats[format]

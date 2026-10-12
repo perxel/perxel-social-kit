@@ -39,7 +39,7 @@ async function renderPage(project: Project, postRef: string, format: Format, mem
         const React = project.require("react") as typeof import("react")
         const {renderToStaticMarkup} = project.require("react-dom/server") as typeof import("react-dom/server")
         const html = renderToStaticMarkup(React.createElement(template.default, {
-            width, height, format, frame: 0, fps: 30, props: post.props ?? {}, brand: project.brand,
+            width, height, format, mode: "still", frame: 0, fps: 30, props: post.props ?? {}, brand: project.brand,
             asset: (path: string) => "/" + path.replace(/^\/+/, "").split("/").map(encodeURIComponent).join("/"),
         }))
         return pageShell(project, {width, height, body: html, title: `${postRef} ${format}`})
@@ -49,16 +49,18 @@ async function renderPage(project: Project, postRef: string, format: Format, mem
     }
 }
 
+// Stills before reel strips, then square, landscape, portrait; with or without a name prefix.
 const order = (file: string) => {
-    const i = ["square", "landscape", "portrait"].indexOf(file.split(".")[0])
-    return i < 0 ? 99 : i
+    const base = file.split(".")[0]
+    const i = ["square", "landscape", "portrait"].findIndex((f) => base === f || base.endsWith(`-${f}`))
+    return (file.endsWith(".png") ? 0 : 100) + (i < 0 ? 99 : i)
 }
 
 /** One page with every rendered file of a post, labelled, for review. */
 function sheetPage(project: Project, postRef: string) {
     const dir = resolvePostDir(project, postRef)
     const out = join(dir, "out")
-    const files = existsSync(out) ? readdirSync(out).filter((f) => /\.(png|jpe?g|webp)$/.test(f) && !f.startsWith("sheet."))
+    const files = existsSync(out) ? readdirSync(out).filter((f) => /\.(png|jpe?g|webp)$/.test(f) && !/(^|-)sheet\.png$/.test(f))
         .sort((a, b) => order(a) - order(b) || a.localeCompare(b)) : []
     const width = 1600, row = 520
     const items = files.map((f) => {

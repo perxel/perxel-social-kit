@@ -16,7 +16,7 @@ social/
   assets/                 logos, music, footage (footage is usually gitignored)
   posts/<date>-<topic>/
     post.ts               template, props, formats
-    out/                  square.png, landscape.png, portrait.mp4, sheet.png ...
+    out/                  <topic>-square.png, <topic>-portrait.mp4, <topic>-sheet.png ... (<topic>: the folder name without its date, or the post's `name`)
 ```
 
 ## Before anything
@@ -29,8 +29,8 @@ social/
 
 1. `social-kit new <topic> --template <name>` creates `social/posts/<today>-<topic>/post.ts` with the template's example props.
 2. Fill in the props with the user's copy. Leave `formats` out to get the config's defaults, or list them (`["square", "landscape", "portrait"]`).
-3. `social-kit render <post>`. It writes `out/<format>.png` for each format and `out/sheet.png`.
-4. **Look at `out/sheet.png` yourself before showing it** (read the image). Check every format, not only the first: text that wraps badly or overflows, logos too small or touching the edge, anything in the portrait format's top 240 px or bottom 300 px (Stories, Reels and TikTok cover those with their own buttons), contrast. Fix and render again (`--only portrait` renders one format).
+3. `social-kit render <post>`. It writes `out/<topic>-<format>.png` for each format and `out/<topic>-sheet.png`.
+4. **Look at the sheet yourself before showing it** (read the image). Check every format, not only the first: text that wraps badly or overflows, logos too small or touching the edge, anything in the portrait format's top 240 px or bottom 300 px (Stories, Reels and TikTok cover those with their own buttons), contrast. Fix and render again (`--only portrait` renders one format).
 5. Report the files and which one goes where (LinkedIn and most feeds: square; X, YouTube, website: landscape; Stories, Reels, TikTok, Shorts: portrait).
 
 ## Templates
@@ -77,8 +77,9 @@ A reel template has `kind: "reel"`, `fps` (30 by default) and `duration` (second
   ```
   The analysis is a guess: if cuts feel early or late, check the beat spacing in the JSON and set `bpm`/`firstBeat` by hand.
 - **Voice-over (optional):** add `voice: {voice: "am_michael", lines: {intro: "This is..."}}` to the post, run `social-kit voice setup` once (Python 3.12 + Kokoro via uv), then `social-kit voice make <post>`. Files land in `posts/<post>/voice/<key>.wav`, trimmed and at -14 LUFS; the template gets `voice[key].src` (for `asset()`) and `voice[key].seconds` (to duck the music under it, e.g. music at 0.7, 0.2 within 0.25 s of each line). Keep voice lines few and short.
-- **Check before rendering:** `social-kit preview <post> --at 1.2,3.5,8` renders stills at those seconds for every format (`out/<format>.preview.jpg`) in about a minute; without `--at` it takes 12 spread over the reel. Look at them (pick one time per scene). A full render takes minutes.
-- `social-kit render <post>` writes `out/<format>.mp4` and a 12-frame strip per format on the sheet. Check the length and that nothing clips (`ffmpeg -i out/landscape.mp4 -af volumedetect -f null -`: max under 0 dB).
+- **Check before rendering:** `social-kit preview <post> --at 1.2,3.5,8` renders stills at those seconds for every format (`out/<topic>-<format>.preview.jpg`) in about a minute; without `--at` it takes 12 spread over the reel. Look at them (pick one time per scene). A full render takes minutes.
+- `social-kit render <post>` writes `out/<topic>-<format>.mp4` and a 12-frame strip per format on the sheet. Check the length and that nothing clips (`ffmpeg -i out/<topic>-landscape.mp4 -af volumedetect -f null -`: max under 0 dB).
+- **A campaign in one post:** when a launch needs images and a reel, write one template of `kind: "both"` that returns the still picture or the reel by `mode` (`props.mode === "reel"`), and give the post `formats` (the stills) and `reel: {formats}` (the reel). One `render` writes everything into the one `out/`. Keep Remotion imports used only in the reel branch: stills render without Remotion. Shared pieces go in `_helper.tsx` files next to the template.
 
 ### What makes a reel work
 
