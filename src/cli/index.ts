@@ -10,8 +10,10 @@ import {findRoot, listPosts, listTemplates, loadPost, loadProject, loadTemplate,
 import {python, runPython, setupPython} from "../audio/python.js"
 import {makeVoice} from "../audio/voice.js"
 import {Visuals} from "../visuals/run.js"
+import {init} from "./init.js"
 
 const HELP = `social-kit: one post, every size
+  social-kit init [--agent <a,b>] [--no-skill] dev dependency, social/, .gitignore, agent skill
 
   social-kit new <topic> [--template <name>]   social/posts/<date>-<topic>/post.ts
   social-kit render <post...> [--only <fmt,...>] [--no-sheet]
@@ -54,12 +56,18 @@ async function main() {
             all: {type: "boolean"},
             "no-sheet": {type: "boolean"},
             help: {type: "boolean", short: "h"},
+            "no-skill": {type: "boolean"},
+            agent: {type: "string"},
         },
     })
     const [command, ...args] = positionals
     if (!command || values.help || command === "help") return console.log(HELP)
 
     if (command === "doctor") return doctor()
+    if (command === "init") {
+        init({skill: !values["no-skill"], agents: values.agent})
+        return doctor()
+    }
     if (command === "music" && args[0] === "analyze") {
         if (!args[1]) throw new Error("Usage: social-kit music analyze <track.mp3> [out.json]")
         return runPython("analyze.py", args.slice(1))
@@ -149,9 +157,10 @@ export default definePost({
 }
 
 function doctor() {
-    const check = (label: string, ok: boolean, hint: string) => {
-        console.log(`${ok ? "ok  " : "MISS"} ${label}${ok ? "" : `\n     ${hint}`}`)
-        if (!ok) process.exitCode = 1
+    /** `optional`: reported, but not a failure (reels, Python). */
+    const check = (label: string, ok: boolean, hint: string, optional = false) => {
+        console.log(`${ok ? "ok  " : optional ? "--  " : "MISS"} ${label}${ok ? "" : `\n     ${hint}`}`)
+        if (!ok && !optional) process.exitCode = 1
     }
     let root: string | undefined
     try { root = findRoot() } catch {}
@@ -160,20 +169,20 @@ function doctor() {
     check(`Chrome${chrome ? ` (${chrome.split("/").find((p) => /\d+\.\d+/.test(p)) ?? chrome})` : ""}`, !!chrome, CHROME_HINT)
     let ffmpeg = false
     try { execFileSync("ffmpeg", ["-version"], {stdio: "ignore"}); ffmpeg = true } catch {}
-    check("ffmpeg (reels and video presets, not needed for images)", ffmpeg, "brew install ffmpeg / apt install ffmpeg")
+    check("ffmpeg (reels and video presets, not needed for images)", ffmpeg, "brew install ffmpeg / apt install ffmpeg", true)
     let magick = false
     try { execFileSync("magick", ["-version"], {stdio: "ignore"}); magick = true } catch {}
-    check("ImageMagick (visuals: WebP for the web; optional otherwise)", magick, "brew install imagemagick / apt install imagemagick")
+    check("ImageMagick (visuals: WebP for the web; optional otherwise)", magick, "brew install imagemagick / apt install imagemagick", true)
     if (root) {
         const req = createRequire(join(root, "package.json"))
         const has = (id: string) => { try { return !!req.resolve(id) } catch { return false } }
         check("react + react-dom in the project", has("react") && has("react-dom/server"), "pnpm add -D react react-dom")
         const remotion = has("remotion") && has("@remotion/bundler") && has("@remotion/renderer")
         check("Remotion (reels only; free up to 3 people, else a company licence: remotion.dev/license)", remotion,
-            "pnpm add -D remotion @remotion/bundler @remotion/renderer")
+            "pnpm add -D remotion @remotion/bundler @remotion/renderer", true)
     }
     const py = python()
-    check(`Python for music analyze and voice (optional)${py ? ` (${py})` : ""}`, !!py, "social-kit voice setup (needs uv), or set SOCIAL_KIT_PYTHON")
+    check(`Python for music analyze and voice (optional)${py ? ` (${py})` : ""}`, !!py, "social-kit voice setup (needs uv), or set SOCIAL_KIT_PYTHON", true)
 }
 
 main().catch((error) => {

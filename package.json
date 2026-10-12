@@ -1,9 +1,26 @@
 {
   "name": "@perxel/social-kit",
-  "version": "0.0.1",
-  "private": true,
-  "description": "One post, every size: render social images (and reels) from React templates your project owns.",
+  "version": "0.1.0",
+  "description": "One post, every size: social images and reels, and the images a site's blog posts need, from React templates your project owns.",
   "license": "MIT",
+  "author": "Perxel (https://perxel.com)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/perxel/perxel-social-kit.git"
+  },
+  "homepage": "https://github.com/perxel/perxel-social-kit#readme",
+  "bugs": "https://github.com/perxel/perxel-social-kit/issues",
+  "keywords": [
+    "social media",
+    "open graph",
+    "images",
+    "reels",
+    "video",
+    "react",
+    "remotion",
+    "puppeteer",
+    "agent skill"
+  ],
   "type": "module",
   "packageManager": "pnpm@10.22.0",
   "bin": {
@@ -28,7 +45,8 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
-    "example": "cd examples && node ../dist/cli/index.js"
+    "example": "cd examples && node ../dist/cli/index.js",
+    "prepublishOnly": "pnpm build"
   },
   "dependencies": {
     "jiti": "2.7.0",
@@ -36,7 +54,11 @@
   },
   "peerDependencies": {
     "react": ">=19",
-    "react-dom": ">=19"
+    "react-dom": ">=19",
+    "remotion": ">=4",
+    "@remotion/bundler": ">=4",
+    "@remotion/renderer": ">=4",
+    "@remotion/tailwind-v4": ">=4"
   },
   "devDependencies": {
     "@remotion/bundler": "4.0.534",
@@ -49,5 +71,19 @@
     "react-dom": "19.3.0",
     "remotion": "4.0.534",
     "typescript": "6.0.3"
+  },
+  "peerDependenciesMeta": {
+    "remotion": {
+      "optional": true
+    },
+    "@remotion/bundler": {
+      "optional": true
+    },
+    "@remotion/renderer": {
+      "optional": true
+    },
+    "@remotion/tailwind-v4": {
+      "optional": true
+    }
   }
 }

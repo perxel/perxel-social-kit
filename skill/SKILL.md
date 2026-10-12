@@ -1,6 +1,6 @@
 ---
 name: social-kit
-description: Make social media images and short videos (reels) in every size from React templates, and the images and clips a site's blog posts need (visual recipes: capture, record, compose), with @perxel/social-kit. Use when the user asks for a social post image, a LinkedIn/Instagram/X/Facebook/TikTok graphic, a reel, a story, an announcement card, "the same post in other sizes", or mentions social-kit, `social/`, `social-kit render`, a post's contact sheet, a beat-synced video, or `social-kit visuals`.
+description: "Make social media images and short videos (reels) in every size from React templates, and the images and clips a site's blog posts need (visual recipes: capture, record, compose), with @perxel/social-kit. Use when the user asks for a social post image, a LinkedIn/Instagram/X/Facebook/TikTok graphic, a reel, a story, an announcement card, \"the same post in other sizes\", or mentions social-kit, `social/`, `social-kit render`, a post's contact sheet, a beat-synced video, or `social-kit visuals`."
 ---
 
 # social-kit
