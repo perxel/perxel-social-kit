@@ -1,6 +1,6 @@
 ---
 name: social-kit
-description: Make social media images and short videos (reels) in every size from React templates, with @perxel/social-kit. Use when the user asks for a social post image, a LinkedIn/Instagram/X/Facebook/TikTok graphic, a reel, a story, an announcement card, "the same post in other sizes", or mentions social-kit, `social/`, `social-kit render`, a post's contact sheet, or a beat-synced video.
+description: Make social media images and short videos (reels) in every size from React templates, and the images and clips a site's blog posts need (visual recipes: capture, record, compose), with @perxel/social-kit. Use when the user asks for a social post image, a LinkedIn/Instagram/X/Facebook/TikTok graphic, a reel, a story, an announcement card, "the same post in other sizes", or mentions social-kit, `social/`, `social-kit render`, a post's contact sheet, a beat-synced video, or `social-kit visuals`.
 ---
 
 # social-kit
@@ -87,6 +87,18 @@ A reel template has `kind: "reel"`, `fps` (30 by default) and `duration` (second
 - Designed scenes (cards, devices, grids, type) carry more than raw screen recordings; keep recordings for the moments that move.
 - Plan beat by beat first (bar, picture, event on the beat, voice) and get it approved before building.
 - Review your own cut against these rules before showing it; fix what fails.
+
+## Visuals for a site's pages and posts
+
+`social-kit visuals` makes the images and short videos a blog post or page needs, from a **recipe** (a `.ts` file listing them), so one command re-makes them when the site changes. Set up in the config's `visuals` (where recipes live, the output path per visual, the cache folder, the web root, which files to check for placement). If the project has its own visuals skill or docs, follow that workflow; it calls these commands.
+
+```
+social-kit visuals build <recipe> [id...] [--origin=<url>]
+social-kit visuals status <recipe>       made? placed in which files? what to provide
+social-kit visuals inventory [folder]    published media and the files that use it
+```
+
+Each visual has a `kind`: `capture` (screenshot of a live page, or one `selector`), `record` (a short silent MP4 + poster for inline autoplay), `compose` (a template at a format, rendered at 2x then downscaled), `provide` (only a person can get it: logins, dashboards; `ask` says exactly what), `reuse` (an existing file). `intermediate: true` keeps a capture in the cache as a compose input (`"@<id>"` in props). Live pages run in a visible Chrome window (hover effects need a real pointer). Record steps: `{scroll, seconds}`, `{wait}`, `{pointer: [x, y], seconds}`, `{click}`, `{tap}`, `{type: "text"}`, `{key: "Meta+K", times?}`; a capture takes `steps` too. Outputs: WebP (at most 1600 px, quality 82) and MP4 (at most 1120 px wide, crf 34, silent, faststart). Check every output by eye before showing it (videos: a contact sheet, `ffmpeg -i x.mp4 -vf "fps=1,scale=280:-1,tile=5x2" -frames:v 1 sheet.png`).
 
 ## Don'ts
 

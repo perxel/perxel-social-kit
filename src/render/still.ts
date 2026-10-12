@@ -4,7 +4,7 @@ import {mkdirSync} from "node:fs"
 import {join, relative} from "node:path"
 import type {Browser} from "puppeteer-core"
 import {loadPost, loadTemplate, postFormats, sizeOf, type Project} from "../project.js"
-import type {Format} from "../types.js"
+import type {Format, Post} from "../types.js"
 import {launch, waitReady} from "./chrome.js"
 import {previewReel, renderBundledStill, renderReel} from "./reel.js"
 import {startServer, type KitServer} from "./server.js"
@@ -19,20 +19,36 @@ export async function renderPost(project: Project, dir: string, {only, log = con
     let formats = await postFormats(project, post)
     if (only?.length) formats = formats.filter((f) => only.includes(f))
     if (!formats.length) throw new Error(`Nothing to render: the post's formats don't include ${only?.join(", ")}`)
-
-    const out = join(dir, "out")
-    mkdirSync(out, {recursive: true})
     const ref = relative(join(project.social, "posts"), dir)
+    return renderPostTo(project, post, {dir, ref, formats, outDir: join(dir, "out"), log})
+}
+
+export interface RenderTarget {
+    /** The post's folder (voice files are read from it); any folder for a post held in memory. */
+    dir: string
+    /** Names the post in logs and on the kit's server. */
+    ref: string
+    formats: Format[]
+    /** Files are written here as `<format>.png` / `.mp4`. */
+    outDir: string
+    log?: (line: string) => void
+    /** The post is not on disk: serve it from memory. */
+    inMemory?: boolean
+}
+
+/** Renders a post object (from disk or built in memory) into `outDir`. */
+export async function renderPostTo(project: Project, post: Post, {dir, ref, formats, outDir, log = console.log, inMemory}: RenderTarget) {
+    mkdirSync(outDir, {recursive: true})
     if (post.template && !post.url) {
         const {meta} = await loadTemplate(project, post.template)
-        if (meta.kind === "reel" || (meta.kind === "both" && post.reel)) return renderReel(project, dir, post, {formats, ref, log})
-        if (meta.bundle) return renderBundledStill(project, dir, post, {formats, ref, log})
+        if (meta.kind === "reel" || (meta.kind === "both" && post.reel)) return renderReel(project, dir, post, {formats, ref, log, outDir})
+        if (meta.bundle) return renderBundledStill(project, dir, post, {formats, ref, log, outDir})
     }
     let server: KitServer | undefined
     let browser: Browser | undefined
     const written: string[] = []
     try {
-        if (!post.url) server = await startServer(project)
+        if (!post.url) server = await startServer(project, inMemory ? new Map([[ref, post]]) : undefined)
         browser = await launch()
         for (const format of formats) {
             const {width, height} = sizeOf(project, format)
@@ -47,7 +63,7 @@ export async function renderPost(project: Project, dir: string, {only, log = con
             } catch (error) {
                 throw new Error(`${ref} ${format}: ${error instanceof Error ? error.message : error}`)
             }
-            const file = join(out, `${format}.png`)
+            const file = join(outDir, `${format}.png`)
             await page.screenshot({path: file as `${string}.png`, clip: {x: 0, y: 0, width, height}})
             await page.close()
             written.push(file)

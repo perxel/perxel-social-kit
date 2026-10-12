@@ -1,4 +1,5 @@
 import type {ReactElement} from "react"
+import type {VisualsConfig} from "./visuals/types.js"
 
 /** A named output size. The three built in are `square` (1:1), `landscape` (16:9) and `portrait` (9:16). */
 export type Format = "square" | "landscape" | "portrait" | (string & {})
@@ -39,6 +40,8 @@ export interface SocialConfig {
     defaults?: {still?: Format[]; reel?: Format[]}
     /** Stylesheets (relative to `social/`) added to every page the kit serves. */
     css?: string[]
+    /** Visual recipes for a site's pages and posts (`social-kit visuals`). */
+    visuals?: VisualsConfig
     /**
      * Bundled pages (reels, and stills of templates with `meta.bundle`): built with Remotion's
      * webpack, so templates can be client components (effects, canvas, the project's CSS framework).

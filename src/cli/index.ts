@@ -9,6 +9,7 @@ import {previewPost, renderPost, renderSheet} from "../render/still.js"
 import {findRoot, listPosts, listTemplates, loadPost, loadProject, loadTemplate, resolvePostDir} from "../project.js"
 import {python, runPython, setupPython} from "../audio/python.js"
 import {makeVoice} from "../audio/voice.js"
+import {Visuals} from "../visuals/run.js"
 
 const HELP = `social-kit: one post, every size
 
@@ -24,6 +25,10 @@ const HELP = `social-kit: one post, every size
   social-kit voice setup                       Python 3.12 + Kokoro + librosa (optional, needs uv)
   social-kit voice make <post> [--only <key,...>]
                                                the post's voice lines → posts/<post>/voice/*.wav
+  social-kit visuals build <recipe> [id...] [--origin=<url>]
+                                               capture, record, compose, encode for the web
+  social-kit visuals status <recipe>           each visual: made? placed? what to provide
+  social-kit visuals inventory [folder]        published media and the files that use it
   social-kit templates                         project templates, then the kit's starters
   social-kit eject <template>                  copy a starter into social/templates/
   social-kit doctor                            check Chrome, ffmpeg, React
@@ -45,6 +50,7 @@ async function main() {
             template: {type: "string", short: "t"},
             only: {type: "string"},
             at: {type: "string"},
+            origin: {type: "string"},
             all: {type: "boolean"},
             "no-sheet": {type: "boolean"},
             help: {type: "boolean", short: "h"},
@@ -117,6 +123,14 @@ export default definePost({
             await previewPost(project, dir, {only, at})
             return
         }
+        case "visuals": {
+            const visuals = new Visuals(project)
+            const [sub, ref, ...ids] = args
+            if (sub === "build" && ref) return visuals.build(ref, ids, {origin: values.origin})
+            if (sub === "status" && ref) return visuals.status(ref)
+            if (sub === "inventory") return visuals.inventory(ref)
+            throw new Error("Usage: social-kit visuals build <recipe> [id...] | status <recipe> | inventory [folder]")
+        }
         case "voice": {
             if (args[0] !== "make" || !args[1]) throw new Error("Usage: social-kit voice setup | voice make <post> [--only <key,...>]")
             const dir = resolvePostDir(project, args[1])
@@ -147,6 +161,9 @@ function doctor() {
     let ffmpeg = false
     try { execFileSync("ffmpeg", ["-version"], {stdio: "ignore"}); ffmpeg = true } catch {}
     check("ffmpeg (reels and video presets, not needed for images)", ffmpeg, "brew install ffmpeg / apt install ffmpeg")
+    let magick = false
+    try { execFileSync("magick", ["-version"], {stdio: "ignore"}); magick = true } catch {}
+    check("ImageMagick (visuals: WebP for the web; optional otherwise)", magick, "brew install imagemagick / apt install imagemagick")
     if (root) {
         const req = createRequire(join(root, "package.json"))
         const has = (id: string) => { try { return !!req.resolve(id) } catch { return false } }

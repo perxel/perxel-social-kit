@@ -35,6 +35,8 @@ export interface ReelOptions {
     log: (line: string) => void
     /** One frame, no length needed: a bundled still. */
     still?: boolean
+    /** Where files go; the post's `out/` by default. */
+    outDir?: string
 }
 
 /** Bundles the post once: one composition per format. */
@@ -138,7 +140,7 @@ function serveRoot(bundleDir: string, root: string) {
 export async function renderReel(project: Project, dir: string, post: Post, options: ReelOptions) {
     const {serveUrl, spec, seconds, renderer: {selectComposition, renderMedia}} = await prepareReel(project, dir, post, options)
     const {ref, log} = options
-    const out = join(dir, "out")
+    const out = options.outDir ?? join(dir, "out")
     mkdirSync(out, {recursive: true})
     const written: string[] = []
     for (const {id, format, width, height} of spec.formats) {
@@ -165,7 +167,7 @@ export async function renderReel(project: Project, dir: string, post: Post, opti
 /** Stills of a template with `meta.bundle`: frame 0 of each format's composition, as PNG. */
 export async function renderBundledStill(project: Project, dir: string, post: Post, options: ReelOptions) {
     const {serveUrl, spec, renderer: {selectComposition, renderStill}} = await prepareReel(project, dir, post, {...options, still: true})
-    const out = join(dir, "out")
+    const out = options.outDir ?? join(dir, "out")
     mkdirSync(out, {recursive: true})
     const written: string[] = []
     for (const {id, format, width, height} of spec.formats) {
@@ -185,7 +187,7 @@ export async function renderBundledStill(project: Project, dir: string, post: Po
 export async function previewReel(project: Project, dir: string, post: Post, options: ReelOptions & {at?: number[]}) {
     const {serveUrl, spec, seconds, renderer: {selectComposition, renderStill}} = await prepareReel(project, dir, post, options)
     const at = options.at?.length ? options.at : Array.from({length: 12}, (_, i) => (i + 0.5) * seconds / 12)
-    const out = join(dir, "out")
+    const out = options.outDir ?? join(dir, "out")
     const tmp = join(project.social, ".kit", "preview")
     rmSync(tmp, {recursive: true, force: true})
     mkdirSync(tmp, {recursive: true})

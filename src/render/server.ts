@@ -5,7 +5,7 @@ import {createServer, type Server} from "node:http"
 import type {AddressInfo} from "node:net"
 import {extname, join, relative, resolve, sep} from "node:path"
 import {loadPost, loadTemplate, resolvePostDir, sizeOf, urlFor, type Project} from "../project.js"
-import type {Format} from "../types.js"
+import type {Format, Post} from "../types.js"
 
 const TYPES: Record<string, string> = {
     ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".mjs": "text/javascript",
@@ -30,10 +30,10 @@ export function pageShell(project: Project, {width, height, body, title = ""}: {
 </head><body>${body}</body></html>`
 }
 
-async function renderPage(project: Project, postRef: string, format: Format) {
+async function renderPage(project: Project, postRef: string, format: Format, memory?: Map<string, Post>) {
     const {width, height} = sizeOf(project, format)
     try {
-        const post = await loadPost(project, resolvePostDir(project, postRef))
+        const post = memory?.get(postRef) ?? await loadPost(project, resolvePostDir(project, postRef))
         if (!post.template) throw new Error("post has no template (and no url)")
         const template = await loadTemplate(project, post.template)
         const React = project.require("react") as typeof import("react")
@@ -80,12 +80,13 @@ export interface KitServer {
     close(): Promise<void>
 }
 
-export async function startServer(project: Project): Promise<KitServer> {
+/** `memory`: posts that exist only in memory (a visual recipe's compose), by the ref used in the URL. */
+export async function startServer(project: Project, memory?: Map<string, Post>): Promise<KitServer> {
     const server: Server = createServer(async (req, res) => {
         const url = new URL(req.url ?? "/", "http://kit")
         try {
             if (url.pathname === "/__kit/render") {
-                const html = await renderPage(project, url.searchParams.get("post")!, url.searchParams.get("format")!)
+                const html = await renderPage(project, url.searchParams.get("post")!, url.searchParams.get("format")!, memory)
                 res.writeHead(200, {"content-type": TYPES[".html"], "cache-control": "no-store"}).end(html)
                 return
             }
