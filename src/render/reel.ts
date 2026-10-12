@@ -1,23 +1,24 @@
-// Reels: the template wrapped in a Remotion composition per format, bundled once, rendered to MP4.
-// Remotion is an optional peer: the project installs it (`remotion`, `@remotion/bundler`,
-// `@remotion/renderer`) and its licence applies (free for individuals and companies of up to 3
-// people, see remotion.dev/license). Stills never load it.
+// Bundled pages: the template wrapped in a Remotion composition per format, bundled once with
+// webpack. Reels render to MP4; stills of templates with `meta.bundle` (client components) render
+// frame 0 to PNG. Remotion is an optional peer: the project installs it (`remotion`,
+// `@remotion/bundler`, `@remotion/renderer`) and its licence applies (free for individuals and
+// companies of up to 3 people, see remotion.dev/license). Plain stills never load it.
 import {execFileSync} from "node:child_process"
-import {mkdirSync, rmSync, writeFileSync} from "node:fs"
-import {dirname, join, relative} from "node:path"
+import {copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync} from "node:fs"
+import {dirname, join, relative, resolve} from "node:path"
 import {pathToFileURL} from "node:url"
 import {KIT_ROOT, loadTemplate, sizeOf, urlFor, type Project} from "../project.js"
 import type {Format, Post} from "../types.js"
 import {voiceFor} from "../audio/voice.js"
 
-const REMOTION_HINT = "Reels need Remotion in the project: pnpm add -D remotion @remotion/bundler @remotion/renderer " +
+const REMOTION_HINT = "Reels and bundled templates need Remotion in the project: pnpm add -D remotion @remotion/bundler @remotion/renderer " +
     "(free for individuals and companies of up to 3 people; larger ones need a Remotion company licence, remotion.dev/license)"
 
-async function importFrom<T>(project: Project, id: string): Promise<T> {
+async function importFrom<T>(project: Project, id: string, hint = REMOTION_HINT): Promise<T> {
     let path: string
-    try { path = project.require.resolve(id) } catch { throw new Error(REMOTION_HINT) }
+    try { path = project.require.resolve(id) } catch { throw new Error(hint) }
     const mod = await import(pathToFileURL(path).href)
-    return (mod.default && !("bundle" in mod) && !("renderMedia" in mod) ? mod.default : mod) as T
+    return (mod.default && !("bundle" in mod) && !("renderMedia" in mod) && !("enableTailwind" in mod) ? mod.default : mod) as T
 }
 
 /** The folder of an installed package, so the bundle uses the project's single copy. */
@@ -32,14 +33,16 @@ export interface ReelOptions {
     formats: Format[]
     ref: string
     log: (line: string) => void
+    /** One frame, no length needed: a bundled still. */
+    still?: boolean
 }
 
-/** Bundles the post's reel once: one composition per format. */
-async function prepareReel(project: Project, dir: string, post: Post, {formats, ref, log}: ReelOptions) {
+/** Bundles the post once: one composition per format. */
+async function prepareReel(project: Project, dir: string, post: Post, {formats, ref, log, still}: ReelOptions) {
     const template = await loadTemplate(project, post.template!)
     const props = post.props ?? {}
-    const fps = template.meta.fps ?? 30
-    const seconds = post.duration ?? (typeof template.meta.duration === "function" ? template.meta.duration(props) : template.meta.duration)
+    const fps = still ? 30 : template.meta.fps ?? 30
+    const seconds = still ? 1 / fps : post.duration ?? (typeof template.meta.duration === "function" ? template.meta.duration(props) : template.meta.duration)
     if (!seconds) throw new Error(`${ref}: the reel has no length (set \`duration\` on the post or the template's meta)`)
 
     const {bundle} = await importFrom<typeof import("@remotion/bundler")>(project, "@remotion/bundler")
@@ -50,7 +53,14 @@ async function prepareReel(project: Project, dir: string, post: Post, {formats, 
     mkdirSync(work, {recursive: true})
     writeFileSync(join(work, ".gitignore"), "*\n")
     const entry = join(work, `reel-${ref.replace(/[^a-zA-Z0-9-]/g, "-")}.tsx`)
+    const bundleConfig = project.config.bundle ?? {}
+    const fromWork = (file: string) => {
+        const rel = relative(work, file).split("\\").join("/")
+        return rel.startsWith(".") ? rel : "./" + rel
+    }
     const spec = {
+        still: !!still,
+        imports: (bundleConfig.css ?? []).map((p) => fromWork(resolve(project.social, p))),
         fps,
         durationInFrames: Math.max(1, Math.round(seconds * fps)),
         formats: formats.map((format) => ({id: compId(format), format, ...sizeOf(project, format)})),
@@ -59,27 +69,70 @@ async function prepareReel(project: Project, dir: string, post: Post, {formats, 
         brand: project.brand,
         css: (project.config.css ?? []).map((p) => urlFor(project.root, join(project.social, p))),
     }
-    let templateImport = relative(work, template.entry.file).split("\\").join("/")
-    if (!templateImport.startsWith(".")) templateImport = "./" + templateImport
-    writeFileSync(entry, reelEntry(templateImport, spec))
+    writeFileSync(entry, reelEntry(fromWork(template.entry.file), spec))
 
     const alias: Record<string, string> = {"@perxel/social-kit$": join(KIT_ROOT, "dist/index.js")}
     for (const id of ["react", "react-dom", "remotion"]) {
         const path = packageDir(project, id)
         if (path) alias[id] = path
     }
+    // The project's own aliases first, so an exact one (`x$`) wins over a prefix (`@`).
+    const own = Object.fromEntries(Object.entries(bundleConfig.alias ?? {}).map(([key, path]) => [key, resolve(project.social, path)]))
+    const tailwind = bundleConfig.tailwind
+        ? (await importFrom<typeof import("@remotion/tailwind-v4")>(project, "@remotion/tailwind-v4", "Tailwind in bundles needs @remotion/tailwind-v4: pnpm add -D @remotion/tailwind-v4")).enableTailwind
+        : undefined
     log(`${ref}: bundling`)
     const serveUrl = await bundle({
         entryPoint: entry,
         // Files are served from the project root (as in stills); a symlink, not a copy.
         publicDir: project.root,
         symlinkPublicDir: true,
-        webpackOverride: (config) => ({
-            ...config,
-            resolve: {...config.resolve, alias: {...(config.resolve?.alias as Record<string, string>), ...alias}},
-        }),
+        webpackOverride: (config) => {
+            const next = {
+                ...config,
+                resolve: {...config.resolve, alias: {...own, ...(config.resolve?.alias as Record<string, string>), ...alias}},
+            }
+            return leaveRootUrls(tailwind ? tailwind(next) : next)
+        },
     })
+    if (bundleConfig.root) serveRoot(serveUrl, resolve(project.social, bundleConfig.root))
     return {serveUrl, spec, seconds, renderer}
+}
+
+/** Loader fixes: css-loader leaves root URLs (`url(/x.svg)`) alone, served at render time from `bundle.root`; esbuild uses the automatic JSX runtime. */
+function leaveRootUrls<C extends {module?: {rules?: unknown[]}}>(config: C): C {
+    const visit = (use: unknown): unknown => {
+        if (Array.isArray(use)) return use.map(visit)
+        if (use && typeof use === "object" && "loader" in use && String((use as {loader: string}).loader).includes("css-loader")) {
+            const entry = use as {loader: string; options?: Record<string, unknown>}
+            return {...entry, options: {...entry.options, url: {filter: (url: string) => !url.startsWith("/")}}}
+        }
+        // Automatic JSX runtime, as in stills: esbuild only reads it from tsconfig.json, which
+        // Remotion's loader can't parse under TypeScript 7.
+        if (use && typeof use === "object" && "loader" in use && String((use as {loader: string}).loader).includes("esbuild-loader")) {
+            const entry = use as {loader: string; options?: Record<string, unknown>}
+            return {...entry, options: {...entry.options, jsx: "automatic"}}
+        }
+        if (typeof use === "string" && use.includes("css-loader")) return {loader: use, options: {url: {filter: (url: string) => !url.startsWith("/")}}}
+        return use
+    }
+    const rules = config.module?.rules?.map((rule) => rule && typeof rule === "object" && "use" in rule ? {...rule, use: visit((rule as {use: unknown}).use)} : rule)
+    return rules ? {...config, module: {...config.module, rules}} : config
+}
+
+/**
+ * Makes root URLs (`/logo.svg`, `/images/a.webp`) work in the bundle: Remotion's server answers
+ * any path under the bundle folder, so the web root's folders are linked into it and its few
+ * top-level files copied (the server does not follow a link that is the file itself).
+ */
+function serveRoot(bundleDir: string, root: string) {
+    if (!existsSync(root)) throw new Error(`bundle.root ${root} does not exist`)
+    for (const name of readdirSync(root)) {
+        const from = join(root, name), to = join(bundleDir, name)
+        if (name.startsWith(".") || existsSync(to)) continue
+        if (statSync(from).isDirectory()) symlinkSync(from, to)
+        else copyFileSync(from, to)
+    }
 }
 
 export async function renderReel(project: Project, dir: string, post: Post, options: ReelOptions) {
@@ -105,6 +158,22 @@ export async function renderReel(project: Project, dir: string, post: Post, opti
         log(`${relative(process.cwd(), file)}  ${width}×${height}  ${seconds.toFixed(1)} s`)
         const frames = framesStrip(file, join(out, `${format}.frames.jpg`), seconds, width >= height)
         if (frames) written.push(frames)
+    }
+    return written
+}
+
+/** Stills of a template with `meta.bundle`: frame 0 of each format's composition, as PNG. */
+export async function renderBundledStill(project: Project, dir: string, post: Post, options: ReelOptions) {
+    const {serveUrl, spec, renderer: {selectComposition, renderStill}} = await prepareReel(project, dir, post, {...options, still: true})
+    const out = join(dir, "out")
+    mkdirSync(out, {recursive: true})
+    const written: string[] = []
+    for (const {id, format, width, height} of spec.formats) {
+        const composition = await selectComposition({serveUrl, id})
+        const file = join(out, `${format}.png`)
+        await renderStill({composition, serveUrl, frame: 0, output: file, imageFormat: "png", scale: post.scale ?? 1, overwrite: true})
+        written.push(file)
+        options.log(`${relative(process.cwd(), file)}  ${width}×${height}`)
     }
     return written
 }
@@ -153,6 +222,8 @@ function framesStrip(video: string, file: string, seconds: number, wide: boolean
 }
 
 interface Spec {
+    still: boolean
+    imports: string[]
     fps: number
     durationInFrames: number
     formats: {id: string; format: Format; width: number; height: number}[]
@@ -164,8 +235,9 @@ interface Spec {
 
 function reelEntry(templateImport: string, spec: Spec) {
     return `// Written by social-kit for one render; not for editing.
-import {createElement, Fragment} from "react"
-import {Composition, continueRender, delayRender, registerRoot, useCurrentFrame, useVideoConfig} from "remotion"
+import {createElement, Fragment, useEffect, useState} from "react"
+import {cancelRender, Composition, continueRender, delayRender, registerRoot, useCurrentFrame, useVideoConfig} from "remotion"
+${spec.imports.map((p) => `import ${JSON.stringify(p)}`).join("\n")}
 import * as template from ${JSON.stringify(templateImport)}
 
 const SPEC = ${JSON.stringify(spec)}
@@ -194,7 +266,26 @@ if (typeof document !== "undefined") {
     }
 }
 
+/** Stills: hold the frame until nothing is marked data-pending; fail on data-error. */
+function useReady() {
+    const [handle] = useState(() => SPEC.still ? delayRender("social-kit: data-pending") : null)
+    useEffect(() => {
+        if (handle === null) return
+        let raf = 0
+        const check = () => {
+            const error = document.querySelector("[data-error]")
+            if (error) return cancelRender(new Error(error.getAttribute("data-error") || error.textContent || "data-error"))
+            if (document.querySelector("[data-pending]")) { raf = requestAnimationFrame(check); return }
+            // Two more frames, so whatever cleared data-pending has painted.
+            raf = requestAnimationFrame(() => { raf = requestAnimationFrame(() => continueRender(handle)) })
+        }
+        raf = requestAnimationFrame(check)
+        return () => cancelAnimationFrame(raf)
+    }, [handle])
+}
+
 function Reel({format}: {format: string}) {
+    useReady()
     const frame = useCurrentFrame()
     const {width, height, fps} = useVideoConfig()
     return createElement((template as any).default, {width, height, format, frame, fps, props: SPEC.props, voice: SPEC.voice, brand: brand(), asset})

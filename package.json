@@ -41,6 +41,7 @@
   "devDependencies": {
     "@remotion/bundler": "4.0.534",
     "@remotion/renderer": "4.0.534",
+    "@remotion/tailwind-v4": "4.0.534",
     "@types/node": "26.6.5",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",

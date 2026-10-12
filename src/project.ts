@@ -50,14 +50,17 @@ export async function loadProject(from?: string): Promise<Project> {
         const path = pick(id)
         if (path) alias[id] = path
     }
-    const jiti = createJiti(join(social, "_"), {
+    const make = (extra: Record<string, string> = {}) => createJiti(join(social, "_"), {
         jsx: {runtime: "automatic"},
         moduleCache: false,
         fsCache: false,
-        alias,
+        alias: {...extra, ...alias},
     })
     const configFile = ["social.config.ts", "social.config.js", "social.config.mjs"].map((f) => join(social, f)).find(existsSync)
-    const config: SocialConfig = configFile ? await jiti.import(configFile, {default: true}) : {}
+    const config: SocialConfig = configFile ? await make().import(configFile, {default: true}) : {}
+    // The bundle's aliases also apply when Node reads a template (for its meta); `x$` (exact in
+    // webpack) is a plain prefix here.
+    const jiti = make(Object.fromEntries(Object.entries(config.bundle?.alias ?? {}).map(([key, path]) => [key.replace(/\$$/, ""), resolve(social, path)])))
     const brand = config.brand ?? {}
     const toUrl = (path: string) => urlFor(root, resolve(social, path))
     return {

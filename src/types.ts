@@ -39,6 +39,20 @@ export interface SocialConfig {
     defaults?: {still?: Format[]; reel?: Format[]}
     /** Stylesheets (relative to `social/`) added to every page the kit serves. */
     css?: string[]
+    /**
+     * Bundled pages (reels, and stills of templates with `meta.bundle`): built with Remotion's
+     * webpack, so templates can be client components (effects, canvas, the project's CSS framework).
+     */
+    bundle?: {
+        /** Stylesheets imported into the bundle (relative to `social/`), e.g. the project's global CSS. */
+        css?: string[]
+        /** Tailwind CSS v4 in `css` (needs `@remotion/tailwind-v4`). */
+        tailwind?: boolean
+        /** Import aliases, paths relative to `social/`: `{"@": ".."}`. A key ending in `$` matches exactly. */
+        alias?: Record<string, string>
+        /** The folder served at `/` (relative to `social/`), for root URLs like `/logo.svg`: a web app's `public/`. */
+        root?: string
+    }
 }
 
 /** The brand as templates receive it: every path turned into a URL the page can load. */
@@ -71,6 +85,11 @@ export interface TemplateMeta<P = Record<string, unknown>> {
     kind?: "still" | "reel" | "both"
     /** Props written into a new post by `social-kit new`. */
     example?: P
+    /**
+     * Stills: render through the bundle (Remotion, `config.bundle`) instead of as static HTML, for
+     * templates that need client-side code. Waits for `data-pending` and fails on `data-error` alike.
+     */
+    bundle?: boolean
     /** Reels: frames per second, 30 by default. */
     fps?: number
     /** Reels: length in seconds, or worked out from the post's props. A post's `duration` wins. */

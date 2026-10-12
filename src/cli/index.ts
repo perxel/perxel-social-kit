@@ -160,7 +160,7 @@ function doctor() {
 }
 
 main().catch((error) => {
-    console.error(`social-kit: ${error instanceof Error ? error.message : error}`)
+    console.error(`social-kit: ${error instanceof Error ? (process.env.DEBUG ? error.stack : error.message) : error}`)
     process.exitCode = 1
 })
 
