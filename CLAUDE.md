@@ -79,7 +79,7 @@ Paths 3 and 4 share `prepareReel` in `render/reel.ts`: it writes `social/.kit/re
 There are no tests, so run it:
 - **Images:** `pnpm example render 2026-01-01-hello` and read `examples/social/posts/*/out/sheet.png`.
 - **Reels:** `pnpm example render 2026-01-02-hello-reel` (kit devDependencies include Remotion).
-- **On a real project:** perxel-web-2026 (`../perxel-web-2026`, `pnpm social …`, `pnpm visuals …`). Its `social/templates/` has bundled templates (devices, pairing with a Lottie still, whale, bars, flow, code, gallery) and a Remotion reel (`lottie-reel`, footage in its gitignored `social/assets/footage/lottie/`). To test an unreleased build there, point its script at this checkout temporarily (`node ../perxel-social-kit/dist/cli/index.js`), never commit that.
+- **On a real project:** perxel-web-2026 (`../perxel-web-2026`, `pnpm social …`, `pnpm visuals …`). Its `social/templates/` has bundled templates (devices, pairing with a Lottie still, whale, bars, flow, code, gallery) and a Remotion reel (`lottie-reel`, footage in `social/assets/footage/lottie/`; media under its `social/` is in Git LFS). To test an unreleased build there, point its script at this checkout temporarily (`node ../perxel-social-kit/dist/cli/index.js`), never commit that.
 - **A fresh install:** `pnpm pack`, then in an empty folder with a `package.json`: `SOCIAL_KIT_INSTALL=<tgz> SOCIAL_KIT_SKILL_SOURCE=<this checkout> npx --package=<tgz> social-kit init --agent claude-code`.
 - **The skill:** `npx skills add <this checkout> --skill social-kit -a claude-code -y --copy` in a scratch repo.
 
