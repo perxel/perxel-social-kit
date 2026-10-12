@@ -55,6 +55,13 @@ export interface TemplateProps<P = Record<string, unknown>> {
     fps: number
     props: P
     brand: ResolvedBrand
+    /**
+     * A URL for a file in the project, from a path relative to the project root
+     * (`asset("social/assets/footage/home.mp4")`). Works in stills and reels alike.
+     */
+    asset: (path: string) => string
+    /** Reels: the post's voice-over lines made by `social-kit voice make`, each a path for `asset()` and its length. */
+    voice?: Record<string, {src: string; seconds: number}>
 }
 
 export interface TemplateMeta<P = Record<string, unknown>> {
@@ -64,6 +71,10 @@ export interface TemplateMeta<P = Record<string, unknown>> {
     kind?: "still" | "reel" | "both"
     /** Props written into a new post by `social-kit new`. */
     example?: P
+    /** Reels: frames per second, 30 by default. */
+    fps?: number
+    /** Reels: length in seconds, or worked out from the post's props. A post's `duration` wins. */
+    duration?: number | ((props: P) => number)
 }
 
 export interface TemplateModule<P = Record<string, unknown>> {
@@ -84,6 +95,22 @@ export interface Post<P = Record<string, unknown>> {
     url?: string
     /** Device pixel ratio, 1 by default. */
     scale?: number
+    /** For a template of kind `both`: render it as a reel instead of stills. */
+    reel?: boolean
+    /** Reels: length in seconds, overriding the template's. */
+    duration?: number
+    /** Reels: H.264 quality, lower is better (18 by default). */
+    crf?: number
+    /** Reels: voice-over lines for `social-kit voice make` (Kokoro, optional). */
+    voice?: {
+        /** Kokoro voice, `am_michael` by default (`af_heart` is a female one). */
+        voice?: string
+        /** Kokoro language code, `a` (American English) by default. */
+        lang?: string
+        speed?: number
+        /** Key → what to say. The key names the file and the template's `voice[key]`. */
+        lines: Record<string, string>
+    }
 }
 
 export const defineConfig = (config: SocialConfig) => config

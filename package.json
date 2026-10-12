@@ -6,12 +6,24 @@
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.22.0",
-  "bin": {"social-kit": "dist/cli/index.js"},
-  "exports": {
-    ".": {"types": "./dist/index.d.ts", "default": "./dist/index.js"}
+  "bin": {
+    "social-kit": "dist/cli/index.js"
   },
-  "files": ["dist", "templates", "skill"],
-  "engines": {"node": ">=22"},
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "templates",
+    "skill",
+    "python"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -27,11 +39,14 @@
     "react-dom": ">=19"
   },
   "devDependencies": {
+    "@remotion/bundler": "4.0.534",
+    "@remotion/renderer": "4.0.534",
     "@types/node": "26.6.5",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "remotion": "4.0.534",
     "typescript": "6.0.3"
   }
 }

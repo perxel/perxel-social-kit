@@ -5,8 +5,10 @@ import {basename, join, relative} from "node:path"
 import {createRequire} from "node:module"
 import {parseArgs} from "node:util"
 import {chromePath, CHROME_HINT} from "../render/chrome.js"
-import {renderPost, renderSheet} from "../render/still.js"
-import {findRoot, listPosts, listTemplates, loadProject, loadTemplate, resolvePostDir} from "../project.js"
+import {previewPost, renderPost, renderSheet} from "../render/still.js"
+import {findRoot, listPosts, listTemplates, loadPost, loadProject, loadTemplate, resolvePostDir} from "../project.js"
+import {python, runPython, setupPython} from "../audio/python.js"
+import {makeVoice} from "../audio/voice.js"
 
 const HELP = `social-kit: one post, every size
 
@@ -14,7 +16,14 @@ const HELP = `social-kit: one post, every size
   social-kit render <post...> [--only <fmt,...>] [--no-sheet]
                                                every format the post declares, then its sheet
   social-kit render --all                      every post
+  social-kit preview <post> [--at <s,...>] [--only <fmt,...>]
+                                               reels: stills at those seconds (or 12 spread
+                                               over the reel) tiled per format, no render
   social-kit sheet <post>                      contact sheet of out/ (out/sheet.png)
+  social-kit music analyze <track.mp3>         tempo, beats and loudness per bar → <track>.beats.json
+  social-kit voice setup                       Python 3.12 + Kokoro + librosa (optional, needs uv)
+  social-kit voice make <post> [--only <key,...>]
+                                               the post's voice lines → posts/<post>/voice/*.wav
   social-kit templates                         project templates, then the kit's starters
   social-kit eject <template>                  copy a starter into social/templates/
   social-kit doctor                            check Chrome, ffmpeg, React
@@ -35,6 +44,7 @@ async function main() {
         options: {
             template: {type: "string", short: "t"},
             only: {type: "string"},
+            at: {type: "string"},
             all: {type: "boolean"},
             "no-sheet": {type: "boolean"},
             help: {type: "boolean", short: "h"},
@@ -44,6 +54,11 @@ async function main() {
     if (!command || values.help || command === "help") return console.log(HELP)
 
     if (command === "doctor") return doctor()
+    if (command === "music" && args[0] === "analyze") {
+        if (!args[1]) throw new Error("Usage: social-kit music analyze <track.mp3> [out.json]")
+        return runPython("analyze.py", args.slice(1))
+    }
+    if (command === "voice" && args[0] === "setup") return setupPython()
 
     const project = await loadProject()
 
@@ -94,6 +109,20 @@ export default definePost({
             }
             return
         }
+        case "preview": {
+            if (!args[0]) throw new Error("Usage: social-kit preview <post> [--at <s,...>] [--only <fmt,...>]")
+            const dir = resolvePostDir(project, args[0])
+            const only = values.only?.split(",").map((s) => s.trim()).filter(Boolean)
+            const at = values.at?.split(",").map(Number).filter((n) => Number.isFinite(n))
+            await previewPost(project, dir, {only, at})
+            return
+        }
+        case "voice": {
+            if (args[0] !== "make" || !args[1]) throw new Error("Usage: social-kit voice setup | voice make <post> [--only <key,...>]")
+            const dir = resolvePostDir(project, args[1])
+            makeVoice(project, dir, await loadPost(project, dir), values.only?.split(",").map((s) => s.trim()).filter(Boolean))
+            return
+        }
         case "sheet": {
             if (!args[0]) throw new Error("Usage: social-kit sheet <post>")
             await renderSheet(project, resolvePostDir(project, args[0]))
@@ -122,7 +151,12 @@ function doctor() {
         const req = createRequire(join(root, "package.json"))
         const has = (id: string) => { try { return !!req.resolve(id) } catch { return false } }
         check("react + react-dom in the project", has("react") && has("react-dom/server"), "pnpm add -D react react-dom")
+        const remotion = has("remotion") && has("@remotion/bundler") && has("@remotion/renderer")
+        check("Remotion (reels only; free up to 3 people, else a company licence: remotion.dev/license)", remotion,
+            "pnpm add -D remotion @remotion/bundler @remotion/renderer")
     }
+    const py = python()
+    check(`Python for music analyze and voice (optional)${py ? ` (${py})` : ""}`, !!py, "social-kit voice setup (needs uv), or set SOCIAL_KIT_PYTHON")
 }
 
 main().catch((error) => {

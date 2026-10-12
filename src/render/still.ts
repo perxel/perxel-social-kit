@@ -3,9 +3,10 @@
 import {mkdirSync} from "node:fs"
 import {join, relative} from "node:path"
 import type {Browser} from "puppeteer-core"
-import {loadPost, postFormats, sizeOf, type Project} from "../project.js"
+import {loadPost, loadTemplate, postFormats, sizeOf, type Project} from "../project.js"
 import type {Format} from "../types.js"
 import {launch, waitReady} from "./chrome.js"
+import {previewReel, renderReel} from "./reel.js"
 import {startServer, type KitServer} from "./server.js"
 
 export interface RenderOptions {
@@ -22,6 +23,10 @@ export async function renderPost(project: Project, dir: string, {only, log = con
     const out = join(dir, "out")
     mkdirSync(out, {recursive: true})
     const ref = relative(join(project.social, "posts"), dir)
+    if (post.template && !post.url) {
+        const {meta} = await loadTemplate(project, post.template)
+        if (meta.kind === "reel" || (meta.kind === "both" && post.reel)) return renderReel(project, dir, post, {formats, ref, log})
+    }
     let server: KitServer | undefined
     let browser: Browser | undefined
     const written: string[] = []
@@ -52,6 +57,17 @@ export async function renderPost(project: Project, dir: string, {only, log = con
         await server?.close()
     }
     return written
+}
+
+/** Reels only: stills at chosen seconds, tiled per format (see `previewReel`). */
+export async function previewPost(project: Project, dir: string, {only, at, log = console.log}: RenderOptions & {at?: number[]} = {}) {
+    const post = await loadPost(project, dir)
+    let formats = await postFormats(project, post)
+    if (only?.length) formats = formats.filter((f) => only.includes(f))
+    const ref = relative(join(project.social, "posts"), dir)
+    const meta = post.template && !post.url ? (await loadTemplate(project, post.template)).meta : undefined
+    if (!(meta?.kind === "reel" || (meta?.kind === "both" && post.reel))) throw new Error(`${ref} is not a reel: \`social-kit render\` it instead`)
+    return previewReel(project, dir, post, {formats, ref, log, at})
 }
 
 /** A contact sheet of everything in the post's `out/`, at `out/sheet.png`. */

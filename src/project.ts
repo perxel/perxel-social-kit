@@ -143,7 +143,7 @@ export async function postFormats(project: Project, post: Post): Promise<Format[
     if (post.formats?.length) return post.formats
     if (post.template && !post.url) {
         const {meta} = await loadTemplate(project, post.template)
-        if (meta.kind === "reel") return project.config.defaults?.reel ?? ["square", "landscape", "portrait"]
+        if (meta.kind === "reel" || (meta.kind === "both" && post.reel)) return project.config.defaults?.reel ?? ["square", "landscape", "portrait"]
     }
     return project.config.defaults?.still ?? ["square", "landscape"]
 }

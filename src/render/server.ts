@@ -40,6 +40,7 @@ async function renderPage(project: Project, postRef: string, format: Format) {
         const {renderToStaticMarkup} = project.require("react-dom/server") as typeof import("react-dom/server")
         const html = renderToStaticMarkup(React.createElement(template.default, {
             width, height, format, frame: 0, fps: 30, props: post.props ?? {}, brand: project.brand,
+            asset: (path: string) => "/" + path.replace(/^\/+/, "").split("/").map(encodeURIComponent).join("/"),
         }))
         return pageShell(project, {width, height, body: html, title: `${postRef} ${format}`})
     } catch (error) {
@@ -49,7 +50,7 @@ async function renderPage(project: Project, postRef: string, format: Format) {
 }
 
 const order = (file: string) => {
-    const i = ["square", "landscape", "portrait"].indexOf(file.replace(/\.\w+$/, ""))
+    const i = ["square", "landscape", "portrait"].indexOf(file.split(".")[0])
     return i < 0 ? 99 : i
 }
 
