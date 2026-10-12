@@ -1,0 +1,132 @@
+#!/usr/bin/env node
+import {execFileSync} from "node:child_process"
+import {copyFileSync, existsSync, mkdirSync, writeFileSync} from "node:fs"
+import {basename, join, relative} from "node:path"
+import {createRequire} from "node:module"
+import {parseArgs} from "node:util"
+import {chromePath, CHROME_HINT} from "../render/chrome.js"
+import {renderPost, renderSheet} from "../render/still.js"
+import {findRoot, listPosts, listTemplates, loadProject, loadTemplate, resolvePostDir} from "../project.js"
+
+const HELP = `social-kit: one post, every size
+
+  social-kit new <topic> [--template <name>]   social/posts/<date>-<topic>/post.ts
+  social-kit render <post...> [--only <fmt,...>] [--no-sheet]
+                                               every format the post declares, then its sheet
+  social-kit render --all                      every post
+  social-kit sheet <post>                      contact sheet of out/ (out/sheet.png)
+  social-kit templates                         project templates, then the kit's starters
+  social-kit eject <template>                  copy a starter into social/templates/
+  social-kit doctor                            check Chrome, ffmpeg, React
+
+<post> is a folder name in social/posts/ or a path to it.`
+
+const today = () => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+
+const slug = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/gi, "d")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+
+async function main() {
+    const {positionals, values} = parseArgs({
+        allowPositionals: true,
+        options: {
+            template: {type: "string", short: "t"},
+            only: {type: "string"},
+            all: {type: "boolean"},
+            "no-sheet": {type: "boolean"},
+            help: {type: "boolean", short: "h"},
+        },
+    })
+    const [command, ...args] = positionals
+    if (!command || values.help || command === "help") return console.log(HELP)
+
+    if (command === "doctor") return doctor()
+
+    const project = await loadProject()
+
+    switch (command) {
+        case "templates": {
+            for (const t of listTemplates(project)) {
+                const {meta} = await loadTemplate(project, t.name)
+                console.log(`${t.name.padEnd(18)} ${t.source.padEnd(8)} ${(meta.formats ?? []).join(", ").padEnd(28)} ${meta.description ?? ""}`)
+            }
+            return
+        }
+        case "eject": {
+            const name = args[0]
+            const entry = listTemplates(project).find((t) => t.name === name)
+            if (!entry) throw new Error(`No template "${name}"`)
+            if (entry.source === "project") throw new Error(`${relative(process.cwd(), entry.file)} is already the project's`)
+            const dest = join(project.social, "templates", basename(entry.file))
+            mkdirSync(join(project.social, "templates"), {recursive: true})
+            copyFileSync(entry.file, dest)
+            return console.log(`${relative(process.cwd(), dest)}  (now used instead of the starter)`)
+        }
+        case "new": {
+            const topic = slug(args.join(" "))
+            if (!topic) throw new Error("Usage: social-kit new <topic> [--template <name>]")
+            const name = values.template ?? "announcement"
+            const {meta} = await loadTemplate(project, name)
+            const dir = join(project.social, "posts", `${today()}-${topic}`)
+            if (existsSync(dir)) throw new Error(`${relative(process.cwd(), dir)} already exists`)
+            mkdirSync(dir, {recursive: true})
+            const props = JSON.stringify(meta.example ?? {}, null, 4).replace(/^(\s*)"([A-Za-z_$][\w$]*)":/gm, "$1$2:").replace(/\n/g, "\n    ")
+            writeFileSync(join(dir, "post.ts"), `import {definePost} from "@perxel/social-kit"
+
+export default definePost({
+    template: ${JSON.stringify(name)},
+    props: ${props},
+})
+`)
+            return console.log(`${relative(process.cwd(), join(dir, "post.ts"))}\nEdit the props, then: social-kit render ${basename(dir)}`)
+        }
+        case "render": {
+            const refs = values.all ? listPosts(project) : args
+            if (!refs.length) throw new Error("Usage: social-kit render <post...> | --all")
+            const only = values.only?.split(",").map((s) => s.trim()).filter(Boolean)
+            for (const ref of refs) {
+                const dir = resolvePostDir(project, ref)
+                await renderPost(project, dir, {only})
+                if (!values["no-sheet"]) await renderSheet(project, dir)
+            }
+            return
+        }
+        case "sheet": {
+            if (!args[0]) throw new Error("Usage: social-kit sheet <post>")
+            await renderSheet(project, resolvePostDir(project, args[0]))
+            return
+        }
+        default:
+            console.log(HELP)
+            process.exitCode = 1
+    }
+}
+
+function doctor() {
+    const check = (label: string, ok: boolean, hint: string) => {
+        console.log(`${ok ? "ok  " : "MISS"} ${label}${ok ? "" : `\n     ${hint}`}`)
+        if (!ok) process.exitCode = 1
+    }
+    let root: string | undefined
+    try { root = findRoot() } catch {}
+    check("social/ folder", !!root, "run social-kit init (or create social/)")
+    const chrome = chromePath()
+    check(`Chrome${chrome ? ` (${chrome.split("/").find((p) => /\d+\.\d+/.test(p)) ?? chrome})` : ""}`, !!chrome, CHROME_HINT)
+    let ffmpeg = false
+    try { execFileSync("ffmpeg", ["-version"], {stdio: "ignore"}); ffmpeg = true } catch {}
+    check("ffmpeg (reels and video presets, not needed for images)", ffmpeg, "brew install ffmpeg / apt install ffmpeg")
+    if (root) {
+        const req = createRequire(join(root, "package.json"))
+        const has = (id: string) => { try { return !!req.resolve(id) } catch { return false } }
+        check("react + react-dom in the project", has("react") && has("react-dom/server"), "pnpm add -D react react-dom")
+    }
+}
+
+main().catch((error) => {
+    console.error(`social-kit: ${error instanceof Error ? error.message : error}`)
+    process.exitCode = 1
+})
+

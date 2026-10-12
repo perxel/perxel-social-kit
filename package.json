@@ -1,0 +1,37 @@
+{
+  "name": "@perxel/social-kit",
+  "version": "0.0.1",
+  "private": true,
+  "description": "One post, every size: render social images (and reels) from React templates your project owns.",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.22.0",
+  "bin": {"social-kit": "dist/cli/index.js"},
+  "exports": {
+    ".": {"types": "./dist/index.d.ts", "default": "./dist/index.js"}
+  },
+  "files": ["dist", "templates", "skill"],
+  "engines": {"node": ">=22"},
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "example": "cd examples && node ../dist/cli/index.js"
+  },
+  "dependencies": {
+    "jiti": "2.7.0",
+    "puppeteer-core": "25.13.0"
+  },
+  "peerDependencies": {
+    "react": ">=19",
+    "react-dom": ">=19"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "typescript": "6.0.3"
+  }
+}
