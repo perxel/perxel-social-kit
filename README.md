@@ -1,10 +1,14 @@
 # @perxel/social-kit
 
+![One post.ts rendered as a 16:9, a 1:1 and a 9:16 image](docs/hero.png)
+
 One post, every size. Write a post once as a few props, and the kit renders it as a square, a 16:9 and a 9:16 image (or video), plus a contact sheet to review them side by side. Templates are plain React components in your own repo, so they look like your brand, not like ours.
 
 It also makes the images and short clips a site's blog posts need: screenshots and recordings of your live site, and designed images from the same templates, written down as a recipe so one command makes them again when the site changes.
 
 Made by [Perxel](https://perxel.com) for its own posts and blog. MIT licensed.
+
+![social-kit render: a post.ts in the terminal, then every size it renders](docs/demo.gif)
 
 ## Install
 
