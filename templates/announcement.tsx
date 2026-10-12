@@ -28,7 +28,9 @@ export const meta: TemplateMeta<Props> = {
 const LAYOUT = {
     landscape: {pad: 128, top: 112, logo: 56, gap: 36, head: 132, track: -3, bottom: 96, foot: 30, mark: 26, rule: 56},
     square: {pad: 88, top: 88, logo: 40, gap: 24, head: 96, track: -2, bottom: 72, foot: 24, mark: 20, rule: 44},
-    portrait: {pad: 96, top: 140, logo: 48, gap: 28, head: 116, track: -2.5, bottom: 132, foot: 28, mark: 24, rule: 52},
+    // 9:16: the square's type (the width is the same); logo row and footer kept clear of the
+    // top and bottom bands Stories, Reels and TikTok cover with their own buttons.
+    portrait: {pad: 88, top: 240, logo: 44, gap: 26, head: 96, track: -2, bottom: 300, foot: 26, mark: 22, rule: 48},
 }
 
 function rich(text: string): ReactNode[] {
@@ -65,7 +67,7 @@ export default function Announcement({width, height, format, props, brand}: Temp
             })}>{rich(props.headline ?? "")}</div>
             {(footer || props.mark) && (
                 <div style={abs({
-                    bottom: l.bottom, height: l.foot * 1.4, display: "flex", justifyContent: "space-between",
+                    bottom: l.bottom, height: 40, display: "flex", justifyContent: "space-between",
                     alignItems: "center", fontSize: l.foot, letterSpacing: .3,
                 })}>
                     <div style={{position: "absolute", left: 0, right: 0, top: -l.rule, height: 1, background: "rgba(255,255,255,.28)"}}/>
