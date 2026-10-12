@@ -38,6 +38,9 @@
     "skill",
     "python"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=22"
   },
