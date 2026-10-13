@@ -55,7 +55,7 @@ Paths 3 and 4 share `prepareReel` in `render/reel.ts`: it writes `social/.kit/re
 - **Plain stills never touch Remotion**, so images are licence-free for everyone. **Reel templates may import Remotion directly** (rejected: kit wrappers around Remotion's components). Remotion is an optional peer: free for individuals and companies of up to 3 people, otherwise a company licence. Re-read its licence when Remotion 5 ships (it says the terms change slightly).
 - **Client templates are bundled stills through Remotion** (rejected: requiring the project's dev server, and rewriting templates as static HTML).
 - **Python steps are optional** (`music analyze`, `voice`), in one shared uv venv at `~/.cache/perxel-social-kit/venv` (or `SOCIAL_KIT_PYTHON`). Kokoro needs Python 3.12 and `transformers>=4.45`.
-- **Web presets are Perxel's numbers** (`encode/web.ts`): WebP at most 1600 px wide, quality 82; MP4 at most 1120 px, crf 34, silent, faststart. They mirror `perxel-web-2026/scripts/lib/media.mjs` (`optimize:videos`): change both together.
+- **Web presets are Perxel's numbers** (`encode/web.ts`): WebP at most 1600 px wide, quality 82; MP4 at most 1920 px, crf 27, preset slow, silent, faststart (high resolution by default, owner 2026-10-13). The images mirror `perxel-web-2026/scripts/lib/media.mjs`; the site's `optimize:videos` for homepage project videos keeps its own lighter numbers (a measured page-weight decision there).
 
 ## Gotchas (each cost a retry)
 

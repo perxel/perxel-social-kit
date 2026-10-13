@@ -1,10 +1,11 @@
 // Web presets: what goes into a site's public folder. Images as WebP (ImageMagick, Lanczos),
 // videos as silent H.264 MP4 with faststart for inline autoplay. Defaults are Perxel's
-// (perxel-web-2026 scripts/lib/media.mjs): a prose figure is ~800px wide, so images at most 1600px;
-// in-post videos show at most ~900px, so 1120px at crf 34.
+// (perxel-web-2026): a prose figure is ~800px wide, so images at most 1600px. In-post videos are
+// high resolution by default (owner, 2026-10-13): 1920px at crf 27, since 1120px at crf 34 read
+// blurry on retina screens and when enlarged (screen recordings carry small text).
 import {execFileSync} from "node:child_process"
 
-export const VIDEO = {crf: 34, preset: "medium", maxWidth: 1120}
+export const VIDEO = {crf: 27, preset: "slow", maxWidth: 1920}
 export const IMAGE = {maxWidth: 1600, quality: 82}
 
 export function hasTool(tool: string) {

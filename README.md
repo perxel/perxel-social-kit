@@ -124,7 +124,7 @@ social-kit visuals status <recipe>          # made? placed in which files? what 
 social-kit visuals inventory [folder]       # published media and the files that use it
 ```
 
-A recipe lists a page's visuals: `capture` (a screenshot of a live page or one element), `record` (a short silent MP4 and its poster), `compose` (a template at a size), `provide` (only a person can get it: a dashboard, a login) and `reuse`. Recordings run steps: scroll, wait, move the pointer, click, tap, type, press keys (`Meta+K`). Outputs use web presets: WebP at most 1600 px wide, MP4 at most 1120 px, silent, fast start. Configure where recipes live and where files go in the config's `visuals`.
+A recipe lists a page's visuals: `capture` (a screenshot of a live page or one element), `record` (a short silent MP4 and its poster), `compose` (a template at a size), `provide` (only a person can get it: a dashboard, a login) and `reuse`. Recordings run steps: scroll, wait, move the pointer, click, tap, type, press keys (`Meta+K`). Outputs use web presets: WebP at most 1600 px wide, MP4 at most 1920 px, silent, fast start. Configure where recipes live and where files go in the config's `visuals`.
 
 ## For agents
 
